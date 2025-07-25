@@ -1,9 +1,54 @@
 #!/bin/python3
 
+import sys
 from PIL import Image
 import numpy as np
 from matplotlib import pyplot as plt
 import random
+
+def print_options():
+    global image_file
+    global data_file
+    global mode
+    global output_file
+    global bits
+
+    print(f"{mode} - {image_file} - {data_file} - {output_file} - {bits}")
+
+def options(index):
+    global mode
+    global output_file
+    global bits
+
+    try:
+        if sys.argv[index] == "-o":
+            output_file = sys.argv[index + 1]
+            return index + 2
+        elif sys.argv[index] == "-l":
+            bits = int(sys.argv[index + 1])
+            return index + 2
+        elif sys.argv[index] == "-d":
+            mode = "decode"
+            return index + 1
+        else:
+            raise Exception("invalid option")
+    except:
+        raise Exception("invalid syntax")
+
+def arg_parser():
+    #if len(sys.argv) < 3:
+    #    raise Exception("Invalid number of arguments")
+
+    global image_file
+    global data_file
+
+    image_file = sys.argv[1]
+    data_file = sys.argv[2]
+
+    index = 3
+
+    while index < len(sys.argv):
+        index = options(index)
 
 def encode(v, s, bits):
     if len(s) * 8 > len(v) * bits:
@@ -75,32 +120,47 @@ def decode(v, bits):
 
     return s
 
-img = Image.open('portal.jpg')
-arr = np.asarray(img)
-
-print(type(arr))
-print(arr.shape)
-
-v = np.ravel(arr)
-print(v.shape)
-
-file = open("exit", "rb")
-data = list(file.read())
+mode = "encode"
+output_file = "out"
 bits = 1
-new_v = encode(v, data, bits)
-print(new_v.shape)
+arg_parser()
 
-new_arr = new_v.reshape(arr.shape)
-print(new_arr.shape)
-print(arr.dtype)
-print(v.dtype)
-print(new_v.dtype)
-print(new_arr.dtype)
+img = Image.open(image_file)
+arr = np.asarray(img)
+v = np.ravel(arr)
+
+
+#print(type(arr))
+#print(arr.shape)
+#
+#v = np.ravel(arr)
+#print(v.shape)
+
+if mode == "encode":
+    file = open(data_file, "rb")
+    data = list(file.read())
+
+    new_v = encode(v, data, bits)
+    new_arr = new_v.reshape(arr.shape)
+    new_img = Image.fromarray(new_arr)
+    new_img.save(output_file)
+elif mode == "decode":
+    decode(v, bits).tofile(output_file)
+
+#new_v = encode(v, data, bits)
+#print(new_v.shape)
+#
+#new_arr = new_v.reshape(arr.shape)
+#print(new_arr.shape)
+#print(arr.dtype)
+#print(v.dtype)
+#print(new_v.dtype)
+#print(new_arr.dtype)
 
 #plt.imshow(new_arr, interpolation='nearest')
 #plt.show()
 
-decode(new_v, bits).tofile("out")
-
-new_img = Image.fromarray(new_arr)
-new_img.save("new_portal.jpg")
+#decode(new_v, bits).tofile(output_file)
+#
+#new_img = Image.fromarray(new_arr)
+#new_img.save("new_portal.jpg")
