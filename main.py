@@ -22,33 +22,49 @@ def options(index):
     global bits
     global threads
 
-    try:
-        if sys.argv[index] == "-o":
-            output_file = sys.argv[index + 1]
-            return index + 2
-        elif sys.argv[index] == "-l":
-            bits = int(sys.argv[index + 1])
-            return index + 2
-        elif sys.argv[index] == "-t":
-            threads = int(sys.argv[index + 1])
-            return index + 2
-        elif sys.argv[index] == "-d":
-            mode = "decode"
-            return index + 1
-        else:
-            raise Exception("invalid option")
-    except:
-        raise Exception("invalid syntax")
+    if sys.argv[index] == "-o":
+        output_file = sys.argv[index + 1]
+        return index + 2
+    elif sys.argv[index] == "-l":
+        bits = int(sys.argv[index + 1])
+        return index + 2
+    elif sys.argv[index] == "-t":
+        threads = int(sys.argv[index + 1])
+        return index + 2
+    else:
+        invalid_options_message(sys.argv[index])
+        exit(1)
+
+def invalid_options_message(option):
+    print(f'''imgsteg: invalid option {option}\nTry \'imgsteg -h\' for more information''')
+
+def helper():
+    print("Usage:")
+    print("    encode:      imgsteg [IMAGE FILE] [SECRET FILE] [OPTIONS]")
+    print("    decode:      imgsteg -d [IMAGE FILE] [OPTIONS]")
+    print("\nFlags:")
+    print("    -h           This help message")
+    print("    -o string    Output file where the resulting image/message is put")
+    print("    -t number    Number of threads to use for encoding/decoding")
+    print("    -l number    Bits to use for hiding the message")
 
 def arg_parser():
-    #if len(sys.argv) < 3:
-    #    raise Exception("Invalid number of arguments")
-
     global image_file
     global data_file
 
-    image_file = sys.argv[1]
-    data_file = sys.argv[2]
+    if len(sys.argv) == 2 and sys.argv[1] == "-h":
+        helper()
+        exit(1)
+
+    if len(sys.argv) < 3:
+        2
+        exit(1)
+
+    if sys.argv[1] == "-d":
+        image_file = sys.argv[2]
+    else:
+        image_file = sys.argv[1]
+        data_file = sys.argv[2]
 
     index = 3
 
