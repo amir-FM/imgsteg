@@ -55,7 +55,7 @@ def arg_parser():
     while index < len(sys.argv):
         index = options(index)
 
-def thread_controller(v, s, bits, threads):
+def thread_encode_controller(v, s, bits, threads):
     data_length = list(len(s).to_bytes(8))
     s = data_length + s
 
@@ -198,8 +198,47 @@ def decode(v, bits):
 
     return s
 
-def calculate_data_length(bytes_vector):
+def calculate_data_length(v, bits):
+    carridge = 0
+    bit_mask = 2 ** bits - 1
+    bytes_vector = []
+    curr_char = 0
+
+    for elem in v:
+        bit = elem & bit_mask
+        curr_char = curr_char + (bit << carridge)
+        carridge += bits
+
+        if carridge >= 8:
+            carridge = 0
+            bytes_vector.append(curr_char)
+            curr_char = 0
+
     return int.from_bytes(bytes(bytes_vector))
+
+def thread_decode_controller(v, bits):
+    start_index = 8 * 8 // bits
+    data_length = calculate_data_length(v[:start_index], bits)
+    s = np.array([], dtype='uint8')
+    curr_char = 0
+    bit_mask = 2 ** bits - 1
+    carridge = 0
+
+    for elem in v[start_index:]:
+        if data_length <= 0:
+            break
+
+        bit = elem & bit_mask
+        curr_char = curr_char + (bit << carridge)
+        carridge += bits
+
+        if carridge >= 8:
+            carridge = 0
+            s = np.append(s, curr_char)
+            data_length -= 1
+            curr_char = 0
+
+    return s
 
 mode = "encode"
 output_file = "out"
@@ -215,10 +254,10 @@ if mode == "encode":
     file = open(data_file, "rb")
     data = list(file.read())
 
-    new_v = thread_controller(v, data, bits, threads)
+    new_v = thread_encode_controller(v, data, bits, threads)
     new_arr = new_v.reshape(arr.shape)
     new_img = Image.fromarray(new_arr)
     new_img.save(output_file)
 elif mode == "decode":
     print(f"v este {v}")
-    decode(v, bits).tofile(output_file)
+    thread_decode_controller(v, bits).tofile(output_file)
