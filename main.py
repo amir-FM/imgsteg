@@ -79,12 +79,12 @@ def thread_encode_controller(v, s, bits, threads):
         print(f"i este {i}")
         if data_index + 2 * data_section > len(s):
             print(f"data [{data_index}, {len(s) - 1}] and image [{image_index}, {image_index + (len(s) - data_index) * 8 // bits - 1}]")
-            t = Thread(target=thread_encode, args=(v[image_index : image_index + (len(s) - data_index) * 8 // bits], s[data_index : len(s)], bits, thread_v[i]))
+            t = Thread(target=thread_encoder, args=(v[image_index : image_index + (len(s) - data_index) * 8 // bits], s[data_index : len(s)], bits, thread_v[i]))
             thrs.append(t)
             t.start()
         else:
             print(f"data [{data_index}, {data_index + data_section - 1}] and image [{image_index}, {image_index + image_section - 1}]")
-            t = Thread(target=thread_encode, args=(v[image_index : image_index + image_section], s[data_index : data_index + data_section], bits, thread_v[i]))
+            t = Thread(target=thread_encoder, args=(v[image_index : image_index + image_section], s[data_index : data_index + data_section], bits, thread_v[i]))
             thrs.append(t)
             t.start()
 
@@ -103,7 +103,7 @@ def thread_encode_controller(v, s, bits, threads):
     new_v = np.append(new_v, v[image_index:])
     return new_v
 
-def thread_encode(v, s, bits, new_v):
+def thread_encoder(v, s, bits, new_v):
     print(f"image len {len(v)} and data {len(s)}")
     mask = (0b11111111 << bits) % 256
     char_mask = 2 ** bits - 1
@@ -161,42 +161,30 @@ def encode(v, s, bits):
     return new_v
 
 def decode(v, bits):
-    data_length_bytes = []
-    data_length = 0
-    length_set = False
-    s = np.array([], dtype='uint8')
-    total_bits = len(v) * bits
-    total_bits = total_bits - total_bits % 8
+    start_index = 8 * 8 // bits
+    data_length = calculate_data_length(v[:start_index], bits)
+    v = v[start_index:]
+
+    data = []
     curr_char = 0
     bit_mask = 2 ** bits - 1
-    print(f"total_bits is {total_bits}")
-
     carridge = 0
+
     for elem in v:
-        if length_set == True and data_length <= 0:
+        if data_length == 0:
             break
 
         bit = elem & bit_mask
         curr_char = curr_char + (bit << carridge)
         carridge += bits
-        total_bits -= bits
 
         if carridge >= 8:
             carridge = 0
-            if length_set == False:
-                data_length_bytes.append(curr_char)
-                if len(data_length_bytes) == 8:
-                    data_length = calculate_data_length(data_length_bytes)
-                    length_set = True
-                    print(f"data_length este {data_length}")
-            else:
-                s = np.append(s, curr_char)
-                data_length -= 1
-
-
+            data.append(curr_char)
+            data_length -= 1
             curr_char = 0
 
-    return s
+    return np.array(data, dtype='int')
 
 def calculate_data_length(v, bits):
     carridge = 0
@@ -216,29 +204,62 @@ def calculate_data_length(v, bits):
 
     return int.from_bytes(bytes(bytes_vector))
 
-def thread_decode_controller(v, bits):
+def thread_decode_controller(v, bits, threads):
     start_index = 8 * 8 // bits
     data_length = calculate_data_length(v[:start_index], bits)
-    s = np.array([], dtype='uint8')
+    print(f"data length is {data_length}")
+    v = v[start_index:]
+
+    if data_length * 8 // bits > len(v):
+        raise ValueError("The data_length extracted from the image is greater than the image size")
+
+    thread_v = [[] for i in range(threads)]
+    image_section = data_length // threads * 8 // bits
+    image_index = 0
+    image_size = data_length * 8 // bits
+
+    thrs = []
+    for i in range(threads):
+        print(f"i este {i}")
+        if image_index + 2 * image_section > image_size:
+            print(f"image [{image_index}, {image_index + (image_size - image_index) - 1}]")
+            t = Thread(target=thread_decoder, args=(v[image_index : image_index + (image_size - image_index)], bits, thread_v[i]))
+            thrs.append(t)
+            t.start()
+        else:
+            print(f"image [{image_index}, {image_index + image_section - 1}]")
+            t = Thread(target=thread_decoder, args=(v[image_index : image_index + image_section], bits, thread_v[i]))
+            thrs.append(t)
+            t.start()
+
+        image_index += image_section
+
+
+    for t in thrs:
+        t.join()
+
+    data = np.array([], dtype='uint8')
+    for i in range(threads):
+        data = np.append(data, thread_v[i])
+
+    return data
+
+def thread_decoder(v, bits, data):
     curr_char = 0
     bit_mask = 2 ** bits - 1
     carridge = 0
 
-    for elem in v[start_index:]:
-        if data_length <= 0:
-            break
-
+    for elem in v:
         bit = elem & bit_mask
         curr_char = curr_char + (bit << carridge)
         carridge += bits
 
         if carridge >= 8:
             carridge = 0
-            s = np.append(s, curr_char)
-            data_length -= 1
+            data.append(curr_char)
             curr_char = 0
 
-    return s
+
 
 mode = "encode"
 output_file = "out"
@@ -260,4 +281,4 @@ if mode == "encode":
     new_img.save(output_file)
 elif mode == "decode":
     print(f"v este {v}")
-    thread_decode_controller(v, bits).tofile(output_file)
+    thread_decode_controller(v, bits, threads).tofile(output_file)
