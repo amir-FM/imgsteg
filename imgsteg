@@ -56,7 +56,7 @@ def helper():
         encode:      imgsteg [IMAGE FILE] [SECRET FILE] [OPTIONS]
         decode:      imgsteg -d [IMAGE FILE] [OPTIONS]
     \nFlags:
-        -h           This help message")
+        -h           This help message
         -o string    Output file where the resulting image/message is put
         -t number    Number of threads to use for encoding/decoding
         -l number    Bits to use for hiding the message''')
@@ -155,66 +155,6 @@ def thread_encoder(v, s, bits, new_v):
         if total_bits % 8 == 0 and total_bits != 0:
             curr_char = s_list.pop(0)
 
-def encode(v, s, bits):
-    if len(s) * 8 > len(v) * bits:
-        raise ValueError("Not enough bits in vector to hide message")
-
-    if len(v) * bits - len(s) * 8 > 16:
-        s.extend([ord(x) for x in "END"])
-
-    print(f"bits in image {len(v) * bits} and message {s}")
-    new_v = np.array([], dtype='uint8')
-    mask = (0b11111111 << bits) % 256
-    char_mask = 2 ** bits - 1
-    s_list = list(s)
-    total_bits = len(s) * 8
-    curr_char = s_list.pop(0)
-    print(f"total_bits is {total_bits} and curr char is {curr_char}")
-    index = 0
-
-    for elem in v:
-        if total_bits == 0:
-            break
-
-        elem = (elem & mask) + (curr_char & char_mask)
-        new_v = np.append(new_v, elem)
-        curr_char >>= bits
-        total_bits -= bits
-        index += 1
-
-        if total_bits % 8 == 0 and total_bits != 0:
-            curr_char = s_list.pop(0)
-
-    print(f"index stopped at {index}")
-    new_v = np.append(new_v, v[index:])
-    return new_v
-
-def decode(v, bits):
-    start_index = 8 * 8 // bits
-    data_length = calculate_data_length(v[:start_index], bits)
-    v = v[start_index:]
-
-    data = []
-    curr_char = 0
-    bit_mask = 2 ** bits - 1
-    carridge = 0
-
-    for elem in v:
-        if data_length == 0:
-            break
-
-        bit = elem & bit_mask
-        curr_char = curr_char + (bit << carridge)
-        carridge += bits
-
-        if carridge >= 8:
-            carridge = 0
-            data.append(curr_char)
-            data_length -= 1
-            curr_char = 0
-
-    return np.array(data, dtype='int')
-
 def calculate_data_length(v, bits):
     carridge = 0
     bit_mask = 2 ** bits - 1
@@ -304,10 +244,7 @@ if mode == "encode":
     file = open(data_file, "rb")
     data = list(file.read())
 
-    if threads == 1:
-        new_v = encode(v, data, bits)
-    else:
-        new_v = thread_encode_controller(v, data, bits, threads)
+    new_v = thread_encode_controller(v, data, bits, threads)
 
     new_arr = new_v.reshape(arr.shape)
     new_img = Image.fromarray(new_arr)
