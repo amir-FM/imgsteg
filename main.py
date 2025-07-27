@@ -55,12 +55,12 @@ def arg_parser():
     while index < len(sys.argv):
         index = options(index)
 
-def thread_controller(v, s, bits, threads):
+def thread_encode_controller(v, s, bits, threads):
+    data_length = list(len(s).to_bytes(8))
+    s = data_length + s
+
     if len(s) * 8 > len(v) * bits:
         raise ValueError("Not enough bits in vector to hide message")
-
-    if len(v) * bits - len(s) * 8 > 16:
-        s.extend([ord(x) for x in "END"])
 
     print(f"bits in image {len(v) * bits} with len {len(v)}")
     print(f"bits in data  {len(s) * 8} with len {len(s)}")
@@ -161,17 +161,19 @@ def encode(v, s, bits):
     return new_v
 
 def decode(v, bits):
+    data_length_bytes = []
+    data_length = 0
+    length_set = False
     s = np.array([], dtype='uint8')
     total_bits = len(v) * bits
     total_bits = total_bits - total_bits % 8
     curr_char = 0
-    end = 0
     bit_mask = 2 ** bits - 1
     print(f"total_bits is {total_bits}")
 
     carridge = 0
     for elem in v:
-        if total_bits == 0:
+        if length_set == True and data_length <= 0:
             break
 
         bit = elem & bit_mask
@@ -181,17 +183,59 @@ def decode(v, bits):
 
         if carridge >= 8:
             carridge = 0
-            s = np.append(s, curr_char)
-            if chr(curr_char) == 'E':
-                end = 1
-            elif chr(curr_char) == 'N' and end == 1:
-                end = 2
-            elif chr(curr_char) == 'D' and end == 2:
-                s = s[:-3]
-                break
+            if length_set == False:
+                data_length_bytes.append(curr_char)
+                if len(data_length_bytes) == 8:
+                    data_length = calculate_data_length(data_length_bytes)
+                    length_set = True
+                    print(f"data_length este {data_length}")
             else:
-                end = 0
+                s = np.append(s, curr_char)
+                data_length -= 1
 
+
+            curr_char = 0
+
+    return s
+
+def calculate_data_length(v, bits):
+    carridge = 0
+    bit_mask = 2 ** bits - 1
+    bytes_vector = []
+    curr_char = 0
+
+    for elem in v:
+        bit = elem & bit_mask
+        curr_char = curr_char + (bit << carridge)
+        carridge += bits
+
+        if carridge >= 8:
+            carridge = 0
+            bytes_vector.append(curr_char)
+            curr_char = 0
+
+    return int.from_bytes(bytes(bytes_vector))
+
+def thread_decode_controller(v, bits):
+    start_index = 8 * 8 // bits
+    data_length = calculate_data_length(v[:start_index], bits)
+    s = np.array([], dtype='uint8')
+    curr_char = 0
+    bit_mask = 2 ** bits - 1
+    carridge = 0
+
+    for elem in v[start_index:]:
+        if data_length <= 0:
+            break
+
+        bit = elem & bit_mask
+        curr_char = curr_char + (bit << carridge)
+        carridge += bits
+
+        if carridge >= 8:
+            carridge = 0
+            s = np.append(s, curr_char)
+            data_length -= 1
             curr_char = 0
 
     return s
@@ -206,39 +250,14 @@ img = Image.open(image_file)
 arr = np.asarray(img)
 v = np.ravel(arr)
 
-
-#print(type(arr))
-#print(arr.shape)
-#
-#v = np.ravel(arr)
-#print(v.shape)
-
 if mode == "encode":
     file = open(data_file, "rb")
     data = list(file.read())
 
-    new_v = thread_controller(v, data, bits, threads)
+    new_v = thread_encode_controller(v, data, bits, threads)
     new_arr = new_v.reshape(arr.shape)
     new_img = Image.fromarray(new_arr)
     new_img.save(output_file)
 elif mode == "decode":
     print(f"v este {v}")
-    decode(v, bits).tofile(output_file)
-
-#new_v = encode(v, data, bits)
-#print(new_v.shape)
-#
-#new_arr = new_v.reshape(arr.shape)
-#print(new_arr.shape)
-#print(arr.dtype)
-#print(v.dtype)
-#print(new_v.dtype)
-#print(new_arr.dtype)
-
-#plt.imshow(new_arr, interpolation='nearest')
-#plt.show()
-
-#decode(new_v, bits).tofile(output_file)
-#
-#new_img = Image.fromarray(new_arr)
-#new_img.save("new_portal.jpg")
+    thread_decode_controller(v, bits).tofile(output_file)
