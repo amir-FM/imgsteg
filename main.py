@@ -23,14 +23,27 @@ def options(index):
     global threads
 
     if sys.argv[index] == "-o":
-        output_file = sys.argv[index + 1]
-        return index + 2
+        try:
+            output_file = sys.argv[index + 1]
+            return index + 2
+        except:
+            invalid_options_message("for -o")
+            exit(1)
     elif sys.argv[index] == "-l":
-        bits = int(sys.argv[index + 1])
-        return index + 2
+        try:
+            bits = int(sys.argv[index + 1])
+            return index + 2
+        except:
+            invalid_options_message("for -l")
+            exit(1)
     elif sys.argv[index] == "-t":
-        threads = int(sys.argv[index + 1])
-        return index + 2
+        try:
+            threads = int(sys.argv[index + 1])
+            return index + 2
+        except:
+            invalid_options_message("for -t")
+            exit(1)
+
     else:
         invalid_options_message(sys.argv[index])
         exit(1)
@@ -39,14 +52,14 @@ def invalid_options_message(option):
     print(f'''imgsteg: invalid option {option}\nTry \'imgsteg -h\' for more information''')
 
 def helper():
-    print("Usage:")
-    print("    encode:      imgsteg [IMAGE FILE] [SECRET FILE] [OPTIONS]")
-    print("    decode:      imgsteg -d [IMAGE FILE] [OPTIONS]")
-    print("\nFlags:")
-    print("    -h           This help message")
-    print("    -o string    Output file where the resulting image/message is put")
-    print("    -t number    Number of threads to use for encoding/decoding")
-    print("    -l number    Bits to use for hiding the message")
+    print('''Usage:
+        encode:      imgsteg [IMAGE FILE] [SECRET FILE] [OPTIONS]
+        decode:      imgsteg -d [IMAGE FILE] [OPTIONS]
+    \nFlags:
+        -h           This help message")
+        -o string    Output file where the resulting image/message is put
+        -t number    Number of threads to use for encoding/decoding
+        -l number    Bits to use for hiding the message''')
 
 def arg_parser():
     global image_file
@@ -57,7 +70,7 @@ def arg_parser():
         exit(1)
 
     if len(sys.argv) < 3:
-        2
+        invalid_options_message("")
         exit(1)
 
     if sys.argv[1] == "-d":
@@ -291,7 +304,11 @@ if mode == "encode":
     file = open(data_file, "rb")
     data = list(file.read())
 
-    new_v = thread_encode_controller(v, data, bits, threads)
+    if threads == 1:
+        new_v = encode(v, data, bits)
+    else:
+        new_v = thread_encode_controller(v, data, bits, threads)
+
     new_arr = new_v.reshape(arr.shape)
     new_img = Image.fromarray(new_arr)
     new_img.save(output_file)
