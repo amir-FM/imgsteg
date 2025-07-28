@@ -44,13 +44,13 @@ def invalid_options_message(option):
 
 def helper():
     print('''Usage:
-        encode:      imgsteg [IMAGE FILE] [SECRET FILE] [OPTIONS]
-        decode:      imgsteg -d [IMAGE FILE] [OPTIONS]
+        encode:         imgsteg [IMAGE FILE] [SECRET FILE] [OPTIONS]
+        decode:         imgsteg -d [IMAGE FILE] [OPTIONS]
     \nFlags:
-        -h           This help message
-        -o string    Output file where the resulting image/message is put
-        -t number    Number of threads to use for encoding/decoding
-        -l number    Bits to use for hiding the message''')
+        -h              This help message
+        -o string       Output file where the resulting image/message is put
+        -t number       Number of threads to use for encoding/decoding
+        -l [1,2,4,8]    Bits to use for hiding the message''')
 
 def arg_parser():
     global mode
