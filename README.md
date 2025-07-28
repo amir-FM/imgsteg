@@ -30,6 +30,8 @@ The examples below showcase the functionality of **imgsteg**, for furthare readi
 ```
 imgsteg example.jpg secret.pdf -o example_out.png
 ```
+<img width="565" height="91" alt="encode" src="https://github.com/user-attachments/assets/0d7451d7-c933-459d-80dd-92b5a625327f" />
+
 Typical command used for a small secret file using the best encoding that marginally alters the image color bytes. For bigger secret files it is recomended to use multithreading.
 
 ### Decoding
@@ -37,4 +39,6 @@ Typical command used for a small secret file using the best encoding that margin
 ```
 imgsteg -d example_out.png -o extracted
 ```
+<img width="478" height="71" alt="decode" src="https://github.com/user-attachments/assets/74120eff-f9c6-41f2-9d9a-ab4332204a5c" />
+
 *Note*: for the decoding process, from testing, the use of multithreading hidered performance slightly.
