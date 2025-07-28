@@ -2,6 +2,8 @@
 
 Steganography software that can hide any file inside an image.
 
+<img width="7485" height="1735" alt="collage" src="https://github.com/user-attachments/assets/0c277cfa-bed6-42dc-93fd-d5f94b378a23" />
+
 ## Description
 
 Multithreaded application based on **LSB** (Least Significant Bit) concept that
