@@ -248,3 +248,4 @@ if mode == "encode":
     new_img.save(output_file, format="PNG")
 elif mode == "decode":
     thread_decode_controller(v, bits, threads).tofile(output_file)
+    print("DONE decoding")
