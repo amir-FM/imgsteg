@@ -4,23 +4,12 @@ from threading import Thread
 import sys
 from PIL import Image
 import numpy as np
-from matplotlib import pyplot as plt
-import random
-
-def print_options():
-    global image_file
-    global data_file
-    global mode
-    global output_file
-    global bits
-
-    print(f"{mode} - {image_file} - {data_file} - {output_file} - {bits}")
 
 def options(index):
-    global mode
     global output_file
     global bits
     global threads
+    global verbose
 
     if sys.argv[index] == "-o":
         try:
@@ -43,7 +32,9 @@ def options(index):
         except:
             invalid_options_message("for -t")
             exit(1)
-
+    elif sys.argv[index] == "-v":
+        verbose = True
+        return index + 1
     else:
         invalid_options_message(sys.argv[index])
         exit(1)
@@ -62,6 +53,7 @@ def helper():
         -l number    Bits to use for hiding the message''')
 
 def arg_parser():
+    global mode
     global image_file
     global data_file
 
@@ -74,6 +66,7 @@ def arg_parser():
         exit(1)
 
     if sys.argv[1] == "-d":
+        mode = "decode"
         image_file = sys.argv[2]
     else:
         image_file = sys.argv[1]
@@ -91,8 +84,10 @@ def thread_encode_controller(v, s, bits, threads):
     if len(s) * 8 > len(v) * bits:
         raise ValueError("Not enough bits in vector to hide message")
 
-    print(f"bits in image {len(v) * bits} with len {len(v)}")
-    print(f"bits in data  {len(s) * 8} with len {len(s)}")
+    if verbose == True:
+        print(f"bits in image {len(v) * bits} with len {len(v)}")
+        print(f"bits in data  {len(s) * 8} with len {len(s)}")
+
     data_section = len(s) // threads
     image_section = data_section * 8 // bits
 
@@ -101,18 +96,18 @@ def thread_encode_controller(v, s, bits, threads):
 
     new_v = np.array([], dtype='uint8')
     thread_v = [[] for i in range(threads)]
-    print(f"thread_v len is {thread_v}")
 
     thrs = []
     for i in range(threads):
-        print(f"i este {i}")
         if data_index + 2 * data_section > len(s):
-            print(f"data [{data_index}, {len(s) - 1}] and image [{image_index}, {image_index + (len(s) - data_index) * 8 // bits - 1}]")
+            if verbose == True:
+                print(f"thread #{i:02}: data [{data_index}, {len(s) - 1}] and image [{image_index}, {image_index + (len(s) - data_index) * 8 // bits - 1}]")
             t = Thread(target=thread_encoder, args=(v[image_index : image_index + (len(s) - data_index) * 8 // bits], s[data_index : len(s)], bits, thread_v[i]))
             thrs.append(t)
             t.start()
         else:
-            print(f"data [{data_index}, {data_index + data_section - 1}] and image [{image_index}, {image_index + image_section - 1}]")
+            if verbose == True:
+                print(f"thread #{i:02}: data [{data_index}, {data_index + data_section - 1}] and image [{image_index}, {image_index + image_section - 1}]")
             t = Thread(target=thread_encoder, args=(v[image_index : image_index + image_section], s[data_index : data_index + data_section], bits, thread_v[i]))
             thrs.append(t)
             t.start()
@@ -128,18 +123,17 @@ def thread_encode_controller(v, s, bits, threads):
         new_v = np.append(new_v, thread_v[i])
 
     image_index = len(s) * 8 // bits
-    print(f"index stopped at {image_index}")
+    if verbose == True:
+        print(f"DONE with index stopped at {image_index}")
     new_v = np.append(new_v, v[image_index:])
     return new_v
 
 def thread_encoder(v, s, bits, new_v):
-    print(f"image len {len(v)} and data {len(s)}")
     mask = (0b11111111 << bits) % 256
     char_mask = 2 ** bits - 1
     s_list = list(s)
     total_bits = len(s) * 8
     curr_char = s_list.pop(0)
-    print(f"total_bits is {total_bits} and curr char is {curr_char}")
     index = 0
 
     for elem in v:
@@ -176,7 +170,8 @@ def calculate_data_length(v, bits):
 def thread_decode_controller(v, bits, threads):
     start_index = 8 * 8 // bits
     data_length = calculate_data_length(v[:start_index], bits)
-    print(f"data length is {data_length}")
+    if verbose == True:
+        print(f"data length is {data_length}")
     v = v[start_index:]
 
     if data_length * 8 // bits > len(v):
@@ -189,14 +184,15 @@ def thread_decode_controller(v, bits, threads):
 
     thrs = []
     for i in range(threads):
-        print(f"i este {i}")
         if image_index + 2 * image_section > image_size:
-            print(f"image [{image_index}, {image_index + (image_size - image_index) - 1}]")
+            if verbose == True:
+                print(f"thread #{i:02} image [{image_index}, {image_index + (image_size - image_index) - 1}]")
             t = Thread(target=thread_decoder, args=(v[image_index : image_index + (image_size - image_index)], bits, thread_v[i]))
             thrs.append(t)
             t.start()
         else:
-            print(f"image [{image_index}, {image_index + image_section - 1}]")
+            if verbose == True:
+                print(f"thread #{i:02} image [{image_index}, {image_index + image_section - 1}]")
             t = Thread(target=thread_decoder, args=(v[image_index : image_index + image_section], bits, thread_v[i]))
             thrs.append(t)
             t.start()
@@ -230,6 +226,7 @@ def thread_decoder(v, bits, data):
 
 
 
+verbose = False
 mode = "encode"
 output_file = "out"
 bits = 1
@@ -248,7 +245,6 @@ if mode == "encode":
 
     new_arr = new_v.reshape(arr.shape)
     new_img = Image.fromarray(new_arr)
-    new_img.save(output_file)
+    new_img.save(output_file, format="PNG")
 elif mode == "decode":
-    print(f"v este {v}")
     thread_decode_controller(v, bits, threads).tofile(output_file)
